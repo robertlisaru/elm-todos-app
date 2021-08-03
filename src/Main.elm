@@ -49,8 +49,20 @@ update msg model =
 
 view : Model -> Html msg
 view model =
-    ul []
-        (viewTodos model.todos)
+    div []
+        [ viewHeader
+        , ul []
+            (viewTodos model.todos)
+        ]
+
+
+viewHeader : Html msg
+viewHeader =
+    header []
+        [ h1 [] [ text "Todos" ]
+        , input [ placeholder "What needs to be done" ] []
+        , button [] [ text "Add" ]
+        ]
 
 
 viewTodo : Todo -> Html msg
