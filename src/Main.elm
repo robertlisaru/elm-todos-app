@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (..)
+import Html.Attributes exposing (..)
 
 
 
@@ -49,7 +50,10 @@ view model =
 viewTodo : Todo -> Html msg
 viewTodo todo =
     li []
-        [ h1 [] [ text todo.title ]
+        [ div []
+            [ input [ type_ "checkbox" ] []
+            , span [] [ text todo.title ]
+            ]
         ]
 
 
