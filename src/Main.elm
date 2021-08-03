@@ -10,7 +10,9 @@ import Html.Attributes exposing (..)
 
 
 type alias Todo =
-    { title : String }
+    { title : String
+    , completed : Bool
+    }
 
 
 type alias Model =
@@ -20,8 +22,12 @@ type alias Model =
 initialModel : Model
 initialModel =
     { todos =
-        [ { title = "Buy milk" }
-        , { title = "Wash dishes" }
+        [ { title = "Buy milk"
+          , completed = True
+          }
+        , { title = "Wash dishes"
+          , completed = False
+          }
         ]
     }
 
@@ -51,7 +57,11 @@ viewTodo : Todo -> Html msg
 viewTodo todo =
     li []
         [ div []
-            [ input [ type_ "checkbox" ] []
+            [ input
+                [ type_ "checkbox"
+                , checked todo.completed
+                ]
+                []
             , span [] [ text todo.title ]
             ]
         ]
