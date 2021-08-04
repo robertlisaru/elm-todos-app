@@ -3,7 +3,8 @@ module Main exposing (main)
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onCheck, onClick, onInput)
+import Html.Events exposing (keyCode, on, onCheck, onClick, onInput)
+import Json.Decode as Json
 
 
 
@@ -49,22 +50,28 @@ type Msg
     = ADD_TODO
     | CHANGE_INPUT String
     | CHANGE_COMPLETED Int Bool
+    | KEY_DOWN Int
+
+
+addTodo : Model -> Model
+addTodo model =
+    { model
+        | todos =
+            { id = model.idIncrement
+            , title = model.newTodoTitle
+            , completed = False
+            }
+                :: model.todos
+        , newTodoTitle = ""
+        , idIncrement = model.idIncrement + 1
+    }
 
 
 update : Msg -> Model -> Model
 update msg model =
     case msg of
         ADD_TODO ->
-            { model
-                | todos =
-                    { id = model.idIncrement
-                    , title = model.newTodoTitle
-                    , completed = False
-                    }
-                        :: model.todos
-                , newTodoTitle = ""
-                , idIncrement = model.idIncrement + 1
-            }
+            addTodo model
 
         CHANGE_INPUT title ->
             { model | newTodoTitle = title }
@@ -83,6 +90,13 @@ update msg model =
                         model.todos
             }
 
+        KEY_DOWN keyCode ->
+            if keyCode == 13 then
+                addTodo model
+
+            else
+                model
+
 
 
 -- VIEW
@@ -97,6 +111,11 @@ view model =
         ]
 
 
+onKeyDown : (Int -> msg) -> Attribute msg
+onKeyDown tagger =
+    on "keydown" (Json.map tagger keyCode)
+
+
 viewHeader : Model -> Html Msg
 viewHeader model =
     header []
@@ -104,6 +123,7 @@ viewHeader model =
         , input
             [ value model.newTodoTitle
             , onInput CHANGE_INPUT
+            , onKeyDown KEY_DOWN
             , placeholder "What needs to be done"
             ]
             []
