@@ -3,6 +3,7 @@ module Main exposing (main)
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onClick, onInput)
 
 
 
@@ -16,12 +17,15 @@ type alias Todo =
 
 
 type alias Model =
-    { todos : List Todo }
+    { newTodoTitle : String
+    , todos : List Todo
+    }
 
 
 initialModel : Model
 initialModel =
-    { todos =
+    { newTodoTitle = ""
+    , todos =
         [ { title = "Buy milk"
           , completed = True
           }
@@ -36,32 +40,48 @@ initialModel =
 -- UPDATE
 
 
-update : msg -> Model -> Model
+type Msg
+    = ADD_TODO
+    | CHANGE_INPUT String
+
+
+update : Msg -> Model -> Model
 update msg model =
     case msg of
-        _ ->
-            model
+        ADD_TODO ->
+            { model
+                | todos = { title = model.newTodoTitle, completed = False } :: model.todos
+                , newTodoTitle = ""
+            }
+
+        CHANGE_INPUT title ->
+            { model | newTodoTitle = title }
 
 
 
 -- VIEW
 
 
-view : Model -> Html msg
+view : Model -> Html Msg
 view model =
     div []
-        [ viewHeader
+        [ viewHeader model
         , ul []
             (viewTodos model.todos)
         ]
 
 
-viewHeader : Html msg
-viewHeader =
+viewHeader : Model -> Html Msg
+viewHeader model =
     header []
         [ h1 [] [ text "Todos" ]
-        , input [ placeholder "What needs to be done" ] []
-        , button [] [ text "Add" ]
+        , input
+            [ value model.newTodoTitle
+            , onInput CHANGE_INPUT
+            , placeholder "What needs to be done"
+            ]
+            []
+        , button [ onClick ADD_TODO ] [ text "Add" ]
         ]
 
 
@@ -88,7 +108,7 @@ viewTodos todos =
 -- MAIN
 
 
-main : Program () Model msg
+main : Program () Model Msg
 main =
     Browser.sandbox
         { init = initialModel
