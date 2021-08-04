@@ -51,6 +51,7 @@ type Msg
     | CHANGE_INPUT String
     | CHANGE_COMPLETED Int Bool
     | KEY_DOWN Int
+    | DELETE_TODO Int
 
 
 addTodo : Model -> Model
@@ -97,6 +98,16 @@ update msg model =
             else
                 model
 
+        DELETE_TODO id ->
+            { model
+                | todos =
+                    List.filter
+                        (\todo ->
+                            todo.id /= id
+                        )
+                        model.todos
+            }
+
 
 
 -- VIEW
@@ -142,6 +153,7 @@ viewTodo todo =
                 ]
                 []
             , span [] [ text todo.title ]
+            , button [ onClick (DELETE_TODO todo.id) ] [ text "x" ]
             ]
         ]
 
