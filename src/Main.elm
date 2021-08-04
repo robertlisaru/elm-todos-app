@@ -3,7 +3,7 @@ module Main exposing (main)
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (onCheck, onClick, onInput)
 
 
 
@@ -11,13 +11,15 @@ import Html.Events exposing (onClick, onInput)
 
 
 type alias Todo =
-    { title : String
+    { id : Int
+    , title : String
     , completed : Bool
     }
 
 
 type alias Model =
     { newTodoTitle : String
+    , idIncrement : Int
     , todos : List Todo
     }
 
@@ -25,11 +27,14 @@ type alias Model =
 initialModel : Model
 initialModel =
     { newTodoTitle = ""
+    , idIncrement = 3
     , todos =
-        [ { title = "Buy milk"
+        [ { id = 1
+          , title = "Buy milk"
           , completed = True
           }
-        , { title = "Wash dishes"
+        , { id = 2
+          , title = "Wash dishes"
           , completed = False
           }
         ]
@@ -43,6 +48,7 @@ initialModel =
 type Msg
     = ADD_TODO
     | CHANGE_INPUT String
+    | CHANGE_COMPLETED Int Bool
 
 
 update : Msg -> Model -> Model
@@ -50,12 +56,32 @@ update msg model =
     case msg of
         ADD_TODO ->
             { model
-                | todos = { title = model.newTodoTitle, completed = False } :: model.todos
+                | todos =
+                    { id = model.idIncrement
+                    , title = model.newTodoTitle
+                    , completed = False
+                    }
+                        :: model.todos
                 , newTodoTitle = ""
+                , idIncrement = model.idIncrement + 1
             }
 
         CHANGE_INPUT title ->
             { model | newTodoTitle = title }
+
+        CHANGE_COMPLETED id checked ->
+            { model
+                | todos =
+                    List.map
+                        (\todo ->
+                            if todo.id == id then
+                                { todo | completed = checked }
+
+                            else
+                                todo
+                        )
+                        model.todos
+            }
 
 
 
@@ -85,13 +111,14 @@ viewHeader model =
         ]
 
 
-viewTodo : Todo -> Html msg
+viewTodo : Todo -> Html Msg
 viewTodo todo =
     li []
         [ div []
             [ input
                 [ type_ "checkbox"
                 , checked todo.completed
+                , onCheck (CHANGE_COMPLETED todo.id)
                 ]
                 []
             , span [] [ text todo.title ]
@@ -99,7 +126,7 @@ viewTodo todo =
         ]
 
 
-viewTodos : List Todo -> List (Html msg)
+viewTodos : List Todo -> List (Html Msg)
 viewTodos todos =
     List.map viewTodo todos
 
