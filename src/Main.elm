@@ -22,6 +22,7 @@ type alias Model =
     { newTodoTitle : String
     , idIncrement : Int
     , todos : List Todo
+    , hideCompleted : Bool
     }
 
 
@@ -39,6 +40,7 @@ initialModel =
           , completed = False
           }
         ]
+    , hideCompleted = False
     }
 
 
@@ -52,6 +54,7 @@ type Msg
     | CHANGE_COMPLETED Int Bool
     | KEY_DOWN Int
     | DELETE_TODO Int
+    | HIDE_COMPLETED Bool
 
 
 addTodo : Model -> Model
@@ -108,6 +111,9 @@ update msg model =
                         model.todos
             }
 
+        HIDE_COMPLETED checkedUnchecked ->
+            { model | hideCompleted = checkedUnchecked }
+
 
 
 -- VIEW
@@ -118,7 +124,7 @@ view model =
     div []
         [ viewHeader model
         , ul []
-            (viewTodos model.todos)
+            (viewTodos model)
         ]
 
 
@@ -139,6 +145,15 @@ viewHeader model =
             ]
             []
         , button [ onClick ADD_TODO ] [ text "Add" ]
+        , div []
+            [ input
+                [ onCheck HIDE_COMPLETED
+                , type_ "checkbox"
+                , checked model.hideCompleted
+                ]
+                []
+            , label [] [ text "Hide completed" ]
+            ]
         ]
 
 
@@ -152,15 +167,22 @@ viewTodo todo =
                 , onCheck (CHANGE_COMPLETED todo.id)
                 ]
                 []
-            , span [] [ text todo.title ]
+            , label [] [ text todo.title ]
             , button [ onClick (DELETE_TODO todo.id) ] [ text "x" ]
             ]
         ]
 
 
-viewTodos : List Todo -> List (Html Msg)
-viewTodos todos =
-    List.map viewTodo todos
+viewTodos : Model -> List (Html Msg)
+viewTodos model =
+    List.map viewTodo
+        (if model.hideCompleted == True then
+            model.todos
+                |> List.filter (\todo -> todo.completed == False)
+
+         else
+            model.todos
+        )
 
 
 
