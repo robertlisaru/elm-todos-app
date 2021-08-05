@@ -6,6 +6,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (keyCode, on, onCheck, onClick, onInput)
 import Http
 import Json.Decode as Json exposing (bool, field, int, string)
+import Json.Encode as Encode
 
 
 
@@ -21,7 +22,6 @@ type alias Todo =
 
 type alias Model =
     { newTodoTitle : String
-    , idIncrement : Int
     , todos : List Todo
     , hideCompleted : Bool
     }
@@ -43,15 +43,32 @@ todoListDecoder =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { newTodoTitle = ""
-      , idIncrement = 1
       , todos = []
       , hideCompleted = False
       }
-    , Http.get
+    , fetchTodos
+    )
+
+
+fetchTodos : Cmd Msg
+fetchTodos =
+    Http.get
         { url = "https://todo-backend-hanami.herokuapp.com/"
         , expect = Http.expectJson LOADED_TODOS todoListDecoder
         }
-    )
+
+
+postTodo : String -> Cmd Msg
+postTodo title =
+    Http.post
+        { url = "https://todo-backend-hanami.herokuapp.com/"
+        , body =
+            Http.jsonBody
+                (Encode.object
+                    [ ( "title", Encode.string title ) ]
+                )
+        , expect = Http.expectJson ADDED_TODO todoDecoder
+        }
 
 
 
@@ -66,27 +83,19 @@ type Msg
     | DELETE_TODO Int
     | HIDE_COMPLETED Bool
     | LOADED_TODOS (Result Http.Error (List Todo))
+    | ADDED_TODO (Result Http.Error Todo)
 
 
-addTodo : Model -> Model
+addTodo : Model -> ( Model, Cmd Msg )
 addTodo model =
-    { model
-        | todos =
-            { id = model.idIncrement
-            , title = model.newTodoTitle
-            , completed = False
-            }
-                :: model.todos
-        , newTodoTitle = ""
-        , idIncrement = model.idIncrement + 1
-    }
+    ( { model | newTodoTitle = "" }, postTodo model.newTodoTitle )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         ADD_TODO ->
-            ( addTodo model, Cmd.none )
+            addTodo model
 
         CHANGE_INPUT title ->
             ( { model | newTodoTitle = title }, Cmd.none )
@@ -108,13 +117,11 @@ update msg model =
             )
 
         KEY_DOWN keyCode ->
-            ( if keyCode == 13 then
+            if keyCode == 13 then
                 addTodo model
 
-              else
-                model
-            , Cmd.none
-            )
+            else
+                ( model, Cmd.none )
 
         DELETE_TODO id ->
             ( { model
@@ -134,7 +141,13 @@ update msg model =
         LOADED_TODOS (Ok todos) ->
             ( { model | todos = todos }, Cmd.none )
 
-        LOADED_TODOS (Err error) ->
+        LOADED_TODOS (Err _) ->
+            ( model, Cmd.none )
+
+        ADDED_TODO (Ok _) ->
+            ( model, fetchTodos )
+
+        ADDED_TODO (Err _) ->
             ( model, Cmd.none )
 
 
@@ -212,6 +225,7 @@ viewTodos model =
 -- MAIN
 
 
+main : Program () Model Msg
 main =
     Browser.element
         { init = init
