@@ -5,6 +5,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (keyCode, on, onCheck, onClick, onInput)
 import Http
+import HttpBuilder
 import Json.Decode as Json exposing (bool, field, int, string)
 import Json.Encode as Encode
 
@@ -17,6 +18,7 @@ type alias Todo =
     { id : Int
     , title : String
     , completed : Bool
+    , url : String
     }
 
 
@@ -29,10 +31,11 @@ type alias Model =
 
 todoDecoder : Json.Decoder Todo
 todoDecoder =
-    Json.map3 Todo
+    Json.map4 Todo
         (field "id" int)
         (field "title" string)
         (field "completed" bool)
+        (field "url" string)
 
 
 todoListDecoder : Json.Decoder (List Todo)
@@ -71,6 +74,19 @@ postTodo title =
         }
 
 
+updateTodo : Todo -> Bool -> Cmd Msg
+updateTodo todo isCompleted =
+    HttpBuilder.patch todo.url
+        |> HttpBuilder.withBody
+            (Http.jsonBody
+                (Encode.object
+                    [ ( "completed", Encode.bool isCompleted ) ]
+                )
+            )
+        |> HttpBuilder.withExpect (Http.expectJson CHANGED_COMPLETED todoDecoder)
+        |> HttpBuilder.request
+
+
 
 -- UPDATE
 
@@ -78,12 +94,13 @@ postTodo title =
 type Msg
     = ADD_TODO
     | CHANGE_INPUT String
-    | CHANGE_COMPLETED Int Bool
+    | CHANGE_COMPLETED Todo Bool
     | KEY_DOWN Int
     | DELETE_TODO Int
     | HIDE_COMPLETED Bool
     | LOADED_TODOS (Result Http.Error (List Todo))
     | ADDED_TODO (Result Http.Error Todo)
+    | CHANGED_COMPLETED (Result Http.Error Todo)
 
 
 addTodo : Model -> ( Model, Cmd Msg )
@@ -100,21 +117,8 @@ update msg model =
         CHANGE_INPUT title ->
             ( { model | newTodoTitle = title }, Cmd.none )
 
-        CHANGE_COMPLETED id checked ->
-            ( { model
-                | todos =
-                    List.map
-                        (\todo ->
-                            if todo.id == id then
-                                { todo | completed = checked }
-
-                            else
-                                todo
-                        )
-                        model.todos
-              }
-            , Cmd.none
-            )
+        CHANGE_COMPLETED todo checked ->
+            ( model, updateTodo todo checked )
 
         KEY_DOWN keyCode ->
             if keyCode == 13 then
@@ -148,6 +152,12 @@ update msg model =
             ( model, fetchTodos )
 
         ADDED_TODO (Err _) ->
+            ( model, Cmd.none )
+
+        CHANGED_COMPLETED (Ok _) ->
+            ( model, fetchTodos )
+
+        CHANGED_COMPLETED (Err _) ->
             ( model, Cmd.none )
 
 
@@ -200,7 +210,7 @@ viewTodo todo =
             [ input
                 [ type_ "checkbox"
                 , checked todo.completed
-                , onCheck (CHANGE_COMPLETED todo.id)
+                , onCheck (CHANGE_COMPLETED todo)
                 ]
                 []
             , label [] [ text todo.title ]
