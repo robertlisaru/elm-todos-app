@@ -2,9 +2,11 @@ module Main exposing (main)
 
 import Browser
 import Browser.Dom as Dom
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (keyCode, on, onBlur, onCheck, onClick, onInput)
+import Css exposing (..)
+import Html
+import Html.Styled exposing (..)
+import Html.Styled.Attributes as HSA exposing (..)
+import Html.Styled.Events exposing (keyCode, on, onBlur, onCheck, onClick, onInput)
 import Http
 import HttpBuilder
 import Json.Decode as Json exposing (bool, field, int, string)
@@ -40,7 +42,7 @@ type KeyDownWhere
 todoDecoder : Json.Decoder Todo
 todoDecoder =
     Json.map4 Todo
-        (field "id" int)
+        (field "id" Json.int)
         (field "title" string)
         (field "completed" bool)
         (field "url" string)
@@ -265,7 +267,13 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div []
+    div
+        [ css
+            [ maxWidth (px 800)
+            , margin auto
+            , position relative
+            ]
+        ]
         [ viewHeader model
         , ul []
             (viewTodos model)
@@ -279,10 +287,17 @@ onKeyDown tagger =
 
 viewHeader : Model -> Html Msg
 viewHeader model =
-    header []
+    header
+        [ css
+            [ textAlign center
+            ]
+        ]
         [ h1 [] [ text "Todos" ]
         , input
-            [ value model.newTodoTitle
+            [ css
+                [ Css.width (pct 75)
+                ]
+            , value model.newTodoTitle
             , onInput CHANGE_INPUT
             , onKeyDown (KEY_DOWN OnAdd)
             , placeholder "What needs to be done"
@@ -293,7 +308,7 @@ viewHeader model =
             [ input
                 [ onCheck HIDE_COMPLETED
                 , type_ "checkbox"
-                , checked model.hideCompleted
+                , HSA.checked model.hideCompleted
                 ]
                 []
             , label [] [ text "Hide completed" ]
@@ -303,11 +318,20 @@ viewHeader model =
 
 viewTodo : Model -> Todo -> Html Msg
 viewTodo model todo =
-    li []
+    li
+        [ css
+            [ listStyleType none
+            , backgroundColor (rgb 240 240 240)
+            , padding (px 10)
+            , Css.nthChild "even"
+                [ backgroundColor (rgb 220 220 220)
+                ]
+            ]
+        ]
         [ div []
             [ input
                 [ type_ "checkbox"
-                , checked todo.completed
+                , HSA.checked todo.completed
                 , onCheck (CHANGE_COMPLETED todo)
                 ]
                 []
@@ -322,8 +346,17 @@ viewTodo model todo =
                     []
 
               else
-                label [ onClick (START_EDITING todo) ] [ text todo.title ]
-            , button [ onClick (DELETE_TODO todo) ] [ text "x" ]
+                label
+                    [ onClick (START_EDITING todo)
+                    ]
+                    [ text todo.title ]
+            , button
+                [ css
+                    [ Css.float right
+                    ]
+                , onClick (DELETE_TODO todo)
+                ]
+                [ text "x" ]
             ]
         ]
 
@@ -348,7 +381,7 @@ main : Program () Model Msg
 main =
     Browser.element
         { init = init
-        , view = view
+        , view = view >> toUnstyled
         , update = update
         , subscriptions = \_ -> Sub.none
         }
