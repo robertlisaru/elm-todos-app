@@ -87,6 +87,13 @@ updateTodo todo isCompleted =
         |> HttpBuilder.request
 
 
+deleteTodo : Todo -> Cmd Msg
+deleteTodo todo =
+    HttpBuilder.delete todo.url
+        |> HttpBuilder.withExpect (Http.expectWhatever DELETED_TODO)
+        |> HttpBuilder.request
+
+
 
 -- UPDATE
 
@@ -96,11 +103,12 @@ type Msg
     | CHANGE_INPUT String
     | CHANGE_COMPLETED Todo Bool
     | KEY_DOWN Int
-    | DELETE_TODO Int
+    | DELETE_TODO Todo
     | HIDE_COMPLETED Bool
     | LOADED_TODOS (Result Http.Error (List Todo))
     | ADDED_TODO (Result Http.Error Todo)
     | CHANGED_COMPLETED (Result Http.Error Todo)
+    | DELETED_TODO (Result Http.Error ())
 
 
 addTodo : Model -> ( Model, Cmd Msg )
@@ -117,8 +125,21 @@ update msg model =
         CHANGE_INPUT title ->
             ( { model | newTodoTitle = title }, Cmd.none )
 
-        CHANGE_COMPLETED todo checked ->
-            ( model, updateTodo todo checked )
+        CHANGE_COMPLETED theTodo checked ->
+            ( { model
+                | todos =
+                    List.map
+                        (\todo ->
+                            if todo.id == theTodo.id then
+                                { todo | completed = checked }
+
+                            else
+                                todo
+                        )
+                        model.todos
+              }
+            , updateTodo theTodo checked
+            )
 
         KEY_DOWN keyCode ->
             if keyCode == 13 then
@@ -127,16 +148,16 @@ update msg model =
             else
                 ( model, Cmd.none )
 
-        DELETE_TODO id ->
+        DELETE_TODO theTodo ->
             ( { model
                 | todos =
                     List.filter
                         (\todo ->
-                            todo.id /= id
+                            todo.id /= theTodo.id
                         )
                         model.todos
               }
-            , Cmd.none
+            , deleteTodo theTodo
             )
 
         HIDE_COMPLETED checkedUnchecked ->
@@ -155,10 +176,16 @@ update msg model =
             ( model, Cmd.none )
 
         CHANGED_COMPLETED (Ok _) ->
-            ( model, fetchTodos )
+            ( model, Cmd.none )
 
         CHANGED_COMPLETED (Err _) ->
+            ( model, fetchTodos )
+
+        DELETED_TODO (Ok _) ->
             ( model, Cmd.none )
+
+        DELETED_TODO (Err _) ->
+            ( model, fetchTodos )
 
 
 
@@ -214,7 +241,7 @@ viewTodo todo =
                 ]
                 []
             , label [] [ text todo.title ]
-            , button [ onClick (DELETE_TODO todo.id) ] [ text "x" ]
+            , button [ onClick (DELETE_TODO todo) ] [ text "x" ]
             ]
         ]
 
