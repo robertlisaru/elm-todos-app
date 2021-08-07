@@ -326,6 +326,11 @@ viewTodo model todo =
             , Css.nthChild "even"
                 [ backgroundColor (rgb 220 220 220)
                 ]
+            , if todo.completed then
+                textDecoration lineThrough
+
+              else
+                textDecoration none
             ]
         ]
         [ div []
