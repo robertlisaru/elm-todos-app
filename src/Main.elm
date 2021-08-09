@@ -7,7 +7,7 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes as Html exposing (..)
 import Html.Styled.Events exposing (keyCode, on, onBlur, onCheck, onClick, onInput)
 import Http
-import HttpBuilder
+import HttpBuilder exposing (delete, get, patch, post, request, withBody, withExpect)
 import Json.Decode as Json exposing (field)
 import Json.Encode as Encode
 import Task
@@ -69,29 +69,28 @@ init _ =
 
 fetchTodos : Cmd Msg
 fetchTodos =
-    Http.get
-        { url = "https://todo-backend-hanami.herokuapp.com/"
-        , expect = Http.expectJson LoadedTodos todoListDecoder
-        }
+    get "https://todo-backend-hanami.herokuapp.com/"
+        |> withExpect (Http.expectJson LoadedTodos todoListDecoder)
+        |> request
 
 
 postTodo : String -> Cmd Msg
 postTodo title =
-    Http.post
-        { url = "https://todo-backend-hanami.herokuapp.com/"
-        , body =
-            Http.jsonBody
+    post "https://todo-backend-hanami.herokuapp.com/"
+        |> withBody
+            (Http.jsonBody
                 (Encode.object
                     [ ( "title", Encode.string title ) ]
                 )
-        , expect = Http.expectJson AddedTodo todoDecoder
-        }
+            )
+        |> withExpect (Http.expectJson AddedTodo todoDecoder)
+        |> request
 
 
 updateTodo : Todo -> Bool -> String -> Cmd Msg
 updateTodo todo isCompleted title =
-    HttpBuilder.patch todo.url
-        |> HttpBuilder.withBody
+    patch todo.url
+        |> withBody
             (Http.jsonBody
                 (Encode.object
                     [ ( "completed", Encode.bool isCompleted )
@@ -99,15 +98,15 @@ updateTodo todo isCompleted title =
                     ]
                 )
             )
-        |> HttpBuilder.withExpect (Http.expectJson ChangedCompleted todoDecoder)
-        |> HttpBuilder.request
+        |> withExpect (Http.expectJson ChangedCompleted todoDecoder)
+        |> request
 
 
 deleteTodo : Todo -> Cmd Msg
 deleteTodo todo =
-    HttpBuilder.delete todo.url
-        |> HttpBuilder.withExpect (Http.expectWhatever DeletedTodo)
-        |> HttpBuilder.request
+    delete todo.url
+        |> withExpect (Http.expectWhatever DeletedTodo)
+        |> request
 
 
 focusTodoEdit : Cmd Msg
