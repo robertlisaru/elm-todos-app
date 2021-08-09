@@ -3,13 +3,12 @@ module Main exposing (main)
 import Browser
 import Browser.Dom as Dom
 import Css exposing (..)
-import Html
 import Html.Styled exposing (..)
-import Html.Styled.Attributes as HSA exposing (..)
+import Html.Styled.Attributes as Html exposing (..)
 import Html.Styled.Events exposing (keyCode, on, onBlur, onCheck, onClick, onInput)
 import Http
 import HttpBuilder
-import Json.Decode as Json exposing (bool, field, int, string)
+import Json.Decode as Json exposing (field)
 import Json.Encode as Encode
 import Task
 
@@ -26,6 +25,20 @@ type alias Todo =
     }
 
 
+todoDecoder : Json.Decoder Todo
+todoDecoder =
+    Json.map4 Todo
+        (field "id" Json.int)
+        (field "title" Json.string)
+        (field "completed" Json.bool)
+        (field "url" Json.string)
+
+
+todoListDecoder : Json.Decoder (List Todo)
+todoListDecoder =
+    Json.list todoDecoder
+
+
 type alias Model =
     { newTodoTitle : String
     , todos : List Todo
@@ -39,20 +52,6 @@ type KeyDownWhere
     | OnRename
 
 
-todoDecoder : Json.Decoder Todo
-todoDecoder =
-    Json.map4 Todo
-        (field "id" Json.int)
-        (field "title" string)
-        (field "completed" bool)
-        (field "url" string)
-
-
-todoListDecoder : Json.Decoder (List Todo)
-todoListDecoder =
-    Json.list todoDecoder
-
-
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { newTodoTitle = ""
@@ -64,11 +63,15 @@ init _ =
     )
 
 
+
+-- UPDATE
+
+
 fetchTodos : Cmd Msg
 fetchTodos =
     Http.get
         { url = "https://todo-backend-hanami.herokuapp.com/"
-        , expect = Http.expectJson LOADED_TODOS todoListDecoder
+        , expect = Http.expectJson LoadedTodos todoListDecoder
         }
 
 
@@ -81,7 +84,7 @@ postTodo title =
                 (Encode.object
                     [ ( "title", Encode.string title ) ]
                 )
-        , expect = Http.expectJson ADDED_TODO todoDecoder
+        , expect = Http.expectJson AddedTodo todoDecoder
         }
 
 
@@ -96,14 +99,14 @@ updateTodo todo isCompleted title =
                     ]
                 )
             )
-        |> HttpBuilder.withExpect (Http.expectJson CHANGED_COMPLETED todoDecoder)
+        |> HttpBuilder.withExpect (Http.expectJson ChangedCompleted todoDecoder)
         |> HttpBuilder.request
 
 
 deleteTodo : Todo -> Cmd Msg
 deleteTodo todo =
     HttpBuilder.delete todo.url
-        |> HttpBuilder.withExpect (Http.expectWhatever DELETED_TODO)
+        |> HttpBuilder.withExpect (Http.expectWhatever DeletedTodo)
         |> HttpBuilder.request
 
 
@@ -112,42 +115,38 @@ focusTodoEdit =
     Task.attempt (\_ -> NoOp) (Dom.focus "todo-edit-input")
 
 
-
--- UPDATE
-
-
-type Msg
-    = ADD_TODO
-    | CHANGE_INPUT String
-    | EDIT_TODO Todo String
-    | START_EDITING Todo
-    | END_EDITTING Todo
-    | NoOp
-    | CHANGE_COMPLETED Todo Bool
-    | KEY_DOWN KeyDownWhere Int
-    | DELETE_TODO Todo
-    | HIDE_COMPLETED Bool
-    | LOADED_TODOS (Result Http.Error (List Todo))
-    | ADDED_TODO (Result Http.Error Todo)
-    | CHANGED_COMPLETED (Result Http.Error Todo)
-    | DELETED_TODO (Result Http.Error ())
-
-
 addTodo : Model -> ( Model, Cmd Msg )
 addTodo model =
     ( { model | newTodoTitle = "" }, postTodo model.newTodoTitle )
 
 
+type Msg
+    = AddTodo
+    | ChangeInput String
+    | EditTodo Todo String
+    | StartEditing Todo
+    | EndEditing Todo
+    | ChangeCompleted Todo Bool
+    | KeyDown KeyDownWhere Int
+    | DeleteTodo Todo
+    | HideCompleted Bool
+    | LoadedTodos (Result Http.Error (List Todo))
+    | AddedTodo (Result Http.Error Todo)
+    | ChangedCompleted (Result Http.Error Todo)
+    | DeletedTodo (Result Http.Error ())
+    | NoOp
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ADD_TODO ->
+        AddTodo ->
             addTodo model
 
-        CHANGE_INPUT title ->
+        ChangeInput title ->
             ( { model | newTodoTitle = title }, Cmd.none )
 
-        CHANGE_COMPLETED theTodo checked ->
+        ChangeCompleted theTodo checked ->
             ( { model
                 | todos =
                     List.map
@@ -163,17 +162,17 @@ update msg model =
             , updateTodo theTodo checked theTodo.title
             )
 
-        START_EDITING todo ->
+        StartEditing todo ->
             ( { model | todoBeingEdited = todo.id }, focusTodoEdit )
 
-        KEY_DOWN OnAdd keyCode ->
+        KeyDown OnAdd keyCode ->
             if keyCode == 13 then
                 addTodo model
 
             else
                 ( model, Cmd.none )
 
-        KEY_DOWN OnRename keyCode ->
+        KeyDown OnRename keyCode ->
             if keyCode == 13 then
                 ( { model
                     | todoBeingEdited = -1
@@ -195,7 +194,7 @@ update msg model =
             else
                 ( model, Cmd.none )
 
-        DELETE_TODO theTodo ->
+        DeleteTodo theTodo ->
             ( { model
                 | todos =
                     List.filter
@@ -207,34 +206,34 @@ update msg model =
             , deleteTodo theTodo
             )
 
-        HIDE_COMPLETED checkedUnchecked ->
+        HideCompleted checkedUnchecked ->
             ( { model | hideCompleted = checkedUnchecked }, Cmd.none )
 
-        LOADED_TODOS (Ok todos) ->
+        LoadedTodos (Ok todos) ->
             ( { model | todos = todos }, Cmd.none )
 
-        LOADED_TODOS (Err _) ->
+        LoadedTodos (Err _) ->
             ( model, Cmd.none )
 
-        ADDED_TODO (Ok _) ->
+        AddedTodo (Ok _) ->
             ( model, fetchTodos )
 
-        ADDED_TODO (Err _) ->
+        AddedTodo (Err _) ->
             ( model, Cmd.none )
 
-        CHANGED_COMPLETED (Ok _) ->
+        ChangedCompleted (Ok _) ->
             ( model, Cmd.none )
 
-        CHANGED_COMPLETED (Err _) ->
+        ChangedCompleted (Err _) ->
             ( model, fetchTodos )
 
-        DELETED_TODO (Ok _) ->
+        DeletedTodo (Ok _) ->
             ( model, Cmd.none )
 
-        DELETED_TODO (Err _) ->
+        DeletedTodo (Err _) ->
             ( model, fetchTodos )
 
-        END_EDITTING theTodo ->
+        EndEditing theTodo ->
             ( { model
                 | todoBeingEdited = -1
               }
@@ -244,7 +243,7 @@ update msg model =
         NoOp ->
             ( model, Cmd.none )
 
-        EDIT_TODO theTodo title ->
+        EditTodo theTodo title ->
             ( { model
                 | todos =
                     List.map
@@ -298,17 +297,17 @@ viewHeader model =
                 [ Css.width (pct 75)
                 ]
             , value model.newTodoTitle
-            , onInput CHANGE_INPUT
-            , onKeyDown (KEY_DOWN OnAdd)
+            , onInput ChangeInput
+            , onKeyDown (KeyDown OnAdd)
             , placeholder "What needs to be done"
             ]
             []
-        , button [ onClick ADD_TODO ] [ text "Add" ]
+        , button [ onClick AddTodo ] [ text "Add" ]
         , div []
             [ input
-                [ onCheck HIDE_COMPLETED
+                [ onCheck HideCompleted
                 , type_ "checkbox"
-                , HSA.checked model.hideCompleted
+                , Html.checked model.hideCompleted
                 ]
                 []
             , label [] [ text "Hide completed" ]
@@ -336,30 +335,30 @@ viewTodo model todo =
         [ div []
             [ input
                 [ type_ "checkbox"
-                , HSA.checked todo.completed
-                , onCheck (CHANGE_COMPLETED todo)
+                , Html.checked todo.completed
+                , onCheck (ChangeCompleted todo)
                 ]
                 []
             , if model.todoBeingEdited == todo.id then
                 input
                     [ id "todo-edit-input"
                     , value todo.title
-                    , onBlur (END_EDITTING todo)
-                    , onInput (EDIT_TODO todo)
-                    , onKeyDown (KEY_DOWN OnRename)
+                    , onBlur (EndEditing todo)
+                    , onInput (EditTodo todo)
+                    , onKeyDown (KeyDown OnRename)
                     ]
                     []
 
               else
                 label
-                    [ onClick (START_EDITING todo)
+                    [ onClick (StartEditing todo)
                     ]
                     [ text todo.title ]
             , button
                 [ css
                     [ Css.float right
                     ]
-                , onClick (DELETE_TODO todo)
+                , onClick (DeleteTodo todo)
                 ]
                 [ text "x" ]
             ]
@@ -368,14 +367,16 @@ viewTodo model todo =
 
 viewTodos : Model -> List (Html Msg)
 viewTodos model =
-    List.map (viewTodo model)
-        (if model.hideCompleted == True then
-            model.todos
-                |> List.filter (\todo -> todo.completed == False)
+    let
+        todos =
+            if model.hideCompleted == True then
+                model.todos
+                    |> List.filter (\todo -> todo.completed == False)
 
-         else
-            model.todos
-        )
+            else
+                model.todos
+    in
+    List.map (viewTodo model) todos
 
 
 
