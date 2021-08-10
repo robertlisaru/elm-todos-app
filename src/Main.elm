@@ -43,7 +43,7 @@ type alias Model =
     { newTodoTitle : String
     , todos : List Todo
     , hideCompleted : Bool
-    , todoBeingRenamed : Int
+    , todoBeingRenamed : Maybe Int
     }
 
 
@@ -57,7 +57,7 @@ init _ =
     ( { newTodoTitle = ""
       , todos = []
       , hideCompleted = False
-      , todoBeingRenamed = -1
+      , todoBeingRenamed = Nothing
       }
     , fetchTodos
     )
@@ -122,12 +122,12 @@ addTodo model =
 type Msg
     = AddTodo
     | AddTodoCmdComplete (Result Http.Error Todo)
-    | InputNewTodoTitle String
     | DeleteTodo Todo
     | DeleteTodoCmdComplete (Result Http.Error ())
     | EndRenaming Todo
     | FetchTodosCmdComplete (Result Http.Error (List Todo))
     | HideCompleted Bool
+    | InputNewTodoTitle String
     | KeyDown KeyDownWhere Int
     | NoOp
     | RenameTodo Todo String
@@ -162,7 +162,7 @@ update msg model =
 
         EndRenaming theTodo ->
             ( { model
-                | todoBeingRenamed = -1
+                | todoBeingRenamed = Nothing
               }
             , updateTodo theTodo theTodo.completed theTodo.title
             )
@@ -181,12 +181,12 @@ update msg model =
 
         KeyDown OnRename 13 ->
             ( { model
-                | todoBeingRenamed = -1
+                | todoBeingRenamed = Nothing
               }
             , let
                 maybeTheTodo =
                     model.todos
-                        |> List.filter (\todo -> todo.id == model.todoBeingRenamed)
+                        |> List.filter (\todo -> Just todo.id == model.todoBeingRenamed)
                         |> List.head
               in
               case maybeTheTodo of
@@ -214,7 +214,7 @@ update msg model =
             )
 
         StartRenaming todo ->
-            ( { model | todoBeingRenamed = todo.id }, focusRenameInput )
+            ( { model | todoBeingRenamed = Just todo.id }, focusRenameInput )
 
         UpdateChecked theTodo checked ->
             ( { model
@@ -301,8 +301,7 @@ viewTodo model todo =
             , backgroundColor (rgb 240 240 240)
             , padding (px 10)
             , Css.nthChild "even"
-                [ backgroundColor (rgb 220 220 220)
-                ]
+                [ backgroundColor (rgb 220 220 220) ]
             , if todo.completed then
                 textDecoration lineThrough
 
@@ -317,7 +316,7 @@ viewTodo model todo =
                 , onCheck (UpdateChecked todo)
                 ]
                 []
-            , if model.todoBeingRenamed == todo.id then
+            , if model.todoBeingRenamed == Just todo.id then
                 viewTodoRenameInput todo
 
               else
