@@ -47,7 +47,13 @@ type alias Model =
     , hideCompleted : Bool
     , todoBeingRenamed : Maybe Int
     , greeting : String
+    , state : State
     }
+
+
+type State
+    = Normal
+    | FetchingTodos
 
 
 type KeyDownWhere
@@ -62,6 +68,7 @@ init _ =
       , hideCompleted = False
       , todoBeingRenamed = Nothing
       , greeting = ""
+      , state = FetchingTodos
       }
     , Cmd.batch [ fetchTodos, generateRandomGreetingIndex ]
     )
@@ -183,7 +190,7 @@ update msg model =
             )
 
         FetchTodosCmdComplete (Ok todos) ->
-            ( { model | todos = todos }, Cmd.none )
+            ( { model | todos = todos, state = Normal }, Cmd.none )
 
         HideCompleted checkedUnchecked ->
             ( { model | hideCompleted = checkedUnchecked }, Cmd.none )
@@ -277,11 +284,15 @@ view model =
             [ maxWidth (px 800)
             , margin auto
             , position relative
+            , textAlign center
             ]
         ]
         [ viewHeader model
-        , ul []
-            (viewTodos model)
+        , if model.state == Normal then
+            ul [ css [ textAlign left ] ] (viewTodos model)
+
+          else
+            viewLoadingMessage
         ]
 
 
@@ -352,8 +363,7 @@ viewTodo model todo =
                 viewTodoTitle todo
             , button
                 [ css
-                    [ Css.float right
-                    ]
+                    [ Css.float right ]
                 , onClick (DeleteTodo todo)
                 ]
                 [ text "x" ]
@@ -365,6 +375,10 @@ viewTodoRenameInput : Todo -> Html Msg
 viewTodoRenameInput todo =
     input
         [ id "todo-rename-input"
+        , css
+            [ Css.width (pct 90)
+            , display inline
+            ]
         , value todo.title
         , onBlur (EndRenaming todo)
         , onInput (RenameTodo todo)
@@ -392,6 +406,11 @@ viewTodos model =
                 model.todos
     in
     List.map (viewTodo model) todos
+
+
+viewLoadingMessage : Html Msg
+viewLoadingMessage =
+    div [] [ text "Loading todos..." ]
 
 
 
