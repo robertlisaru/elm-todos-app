@@ -70,7 +70,7 @@ init _ =
 fetchTodos : Cmd Msg
 fetchTodos =
     get "https://todo-backend-hanami.herokuapp.com/"
-        |> withExpect (Http.expectJson LoadedTodos todoListDecoder)
+        |> withExpect (Http.expectJson FetchTodosCmdComplete todoListDecoder)
         |> request
 
 
@@ -83,7 +83,7 @@ postTodo title =
                     [ ( "title", Encode.string title ) ]
                 )
             )
-        |> withExpect (Http.expectJson AddedTodo todoDecoder)
+        |> withExpect (Http.expectJson AddTodoCmdComplete todoDecoder)
         |> request
 
 
@@ -98,14 +98,14 @@ updateTodo todo isCompleted title =
                     ]
                 )
             )
-        |> withExpect (Http.expectJson ChangedCompleted todoDecoder)
+        |> withExpect (Http.expectJson UpdateCmdComplete todoDecoder)
         |> request
 
 
 deleteTodo : Todo -> Cmd Msg
 deleteTodo todo =
     delete todo.url
-        |> withExpect (Http.expectWhatever DeletedTodo)
+        |> withExpect (Http.expectWhatever DeleteTodoCmdComplete)
         |> request
 
 
@@ -120,55 +120,33 @@ addTodo model =
 
 
 type Msg
-    = AddedTodo (Result Http.Error Todo)
-    | AddTodo
-    | ChangeCompleted Todo Bool
-    | ChangedCompleted (Result Http.Error Todo)
+    = AddTodo
+    | AddTodoCmdComplete (Result Http.Error Todo)
     | ChangeInput String
-    | DeletedTodo (Result Http.Error ())
     | DeleteTodo Todo
+    | DeleteTodoCmdComplete (Result Http.Error ())
     | EndRenaming Todo
+    | FetchTodosCmdComplete (Result Http.Error (List Todo))
     | HideCompleted Bool
     | KeyDown KeyDownWhere Int
-    | LoadedTodos (Result Http.Error (List Todo))
     | NoOp
     | RenameTodo Todo String
     | StartRenaming Todo
+    | UpdateChecked Todo Bool
+    | UpdateCmdComplete (Result Http.Error Todo)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        AddedTodo (Ok _) ->
-            ( model, fetchTodos )
-
         AddTodo ->
             addTodo model
 
-        ChangeCompleted theTodo checked ->
-            ( { model
-                | todos =
-                    List.map
-                        (\todo ->
-                            if todo.id == theTodo.id then
-                                { todo | completed = checked }
-
-                            else
-                                todo
-                        )
-                        model.todos
-              }
-            , updateTodo theTodo checked theTodo.title
-            )
-
-        ChangedCompleted (Err _) ->
+        AddTodoCmdComplete (Ok _) ->
             ( model, fetchTodos )
 
         ChangeInput title ->
             ( { model | newTodoTitle = title }, Cmd.none )
-
-        DeletedTodo (Err _) ->
-            ( model, fetchTodos )
 
         DeleteTodo theTodo ->
             ( { model
@@ -182,12 +160,18 @@ update msg model =
             , deleteTodo theTodo
             )
 
+        DeleteTodoCmdComplete (Err _) ->
+            ( model, fetchTodos )
+
         EndRenaming theTodo ->
             ( { model
                 | todoBeingRenamed = -1
               }
             , updateTodo theTodo theTodo.completed theTodo.title
             )
+
+        FetchTodosCmdComplete (Ok todos) ->
+            ( { model | todos = todos }, Cmd.none )
 
         HideCompleted checkedUnchecked ->
             ( { model | hideCompleted = checkedUnchecked }, Cmd.none )
@@ -213,9 +197,6 @@ update msg model =
                     Cmd.none
             )
 
-        LoadedTodos (Ok todos) ->
-            ( { model | todos = todos }, Cmd.none )
-
         RenameTodo theTodo title ->
             ( { model
                 | todos =
@@ -234,6 +215,25 @@ update msg model =
 
         StartRenaming todo ->
             ( { model | todoBeingRenamed = todo.id }, focusRenameInput )
+
+        UpdateChecked theTodo checked ->
+            ( { model
+                | todos =
+                    List.map
+                        (\todo ->
+                            if todo.id == theTodo.id then
+                                { todo | completed = checked }
+
+                            else
+                                todo
+                        )
+                        model.todos
+              }
+            , updateTodo theTodo checked theTodo.title
+            )
+
+        UpdateCmdComplete (Err _) ->
+            ( model, fetchTodos )
 
         _ ->
             ( model, Cmd.none )
@@ -267,8 +267,7 @@ viewHeader : Model -> Html Msg
 viewHeader model =
     header
         [ css
-            [ textAlign center
-            ]
+            [ textAlign center ]
         ]
         [ h1 [] [ text "Todos" ]
         , input
@@ -315,7 +314,7 @@ viewTodo model todo =
             [ input
                 [ type_ "checkbox"
                 , Html.checked todo.completed
-                , onCheck (ChangeCompleted todo)
+                , onCheck (UpdateChecked todo)
                 ]
                 []
             , if model.todoBeingRenamed == todo.id then
