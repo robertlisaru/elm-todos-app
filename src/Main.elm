@@ -1,5 +1,6 @@
 module Main exposing (main)
 
+import Array
 import Browser
 import Browser.Dom as Dom
 import Css exposing (..)
@@ -10,6 +11,7 @@ import Http
 import HttpBuilder exposing (delete, get, patch, post, request, withBody, withExpect)
 import Json.Decode as Json exposing (field)
 import Json.Encode as Encode
+import Random
 import Task
 
 
@@ -44,6 +46,7 @@ type alias Model =
     , todos : List Todo
     , hideCompleted : Bool
     , todoBeingRenamed : Maybe Int
+    , greeting : String
     }
 
 
@@ -58,13 +61,24 @@ init _ =
       , todos = []
       , hideCompleted = False
       , todoBeingRenamed = Nothing
+      , greeting = ""
       }
-    , fetchTodos
+    , Cmd.batch [ fetchTodos, generateRandomGreetingIndex ]
     )
+
+
+greetings : List String
+greetings =
+    [ "Hello, traveller!", "Welcome back, dear user!", "Ah! My favourite user is back!" ]
 
 
 
 -- UPDATE
+
+
+generateRandomGreetingIndex : Cmd Msg
+generateRandomGreetingIndex =
+    Random.generate RandomIndexComplete (Random.int 0 (List.length greetings - 1))
 
 
 fetchTodos : Cmd Msg
@@ -130,6 +144,7 @@ type Msg
     | InputNewTodoTitle String
     | KeyDown KeyDownWhere Int
     | NoOp
+    | RandomIndexComplete Int
     | RenameTodo Todo String
     | StartRenaming Todo
     | UpdateChecked Todo Bool
@@ -196,6 +211,18 @@ update msg model =
                 Nothing ->
                     Cmd.none
             )
+
+        RandomIndexComplete index ->
+            let
+                newGreeting =
+                    case Array.get index (Array.fromList greetings) of
+                        Just greeting ->
+                            greeting
+
+                        Nothing ->
+                            ""
+            in
+            ( { model | greeting = newGreeting }, Cmd.none )
 
         RenameTodo theTodo title ->
             ( { model
@@ -269,7 +296,9 @@ viewHeader model =
         [ css
             [ textAlign center ]
         ]
-        [ h1 [] [ text "Todos" ]
+        [ h1 []
+            [ text "Todos" ]
+        , p [] [ text (model.greeting ++ " Here's your list: ") ]
         , input
             [ css
                 [ Css.width (pct 75)
@@ -375,5 +404,5 @@ main =
         { init = init
         , view = view >> toUnstyled
         , update = update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = always Sub.none
         }
