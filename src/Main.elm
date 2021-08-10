@@ -111,7 +111,7 @@ deleteTodo todo =
 
 focusRenameInput : Cmd Msg
 focusRenameInput =
-    Task.attempt (\_ -> NoOp) (Dom.focus "todo-rename-input")
+    Task.attempt (always NoOp) (Dom.focus "todo-rename-input")
 
 
 addTodo : Model -> ( Model, Cmd Msg )
