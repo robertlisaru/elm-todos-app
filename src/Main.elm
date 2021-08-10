@@ -122,7 +122,7 @@ addTodo model =
 type Msg
     = AddTodo
     | AddTodoCmdComplete (Result Http.Error Todo)
-    | ChangeInput String
+    | InputNewTodoTitle String
     | DeleteTodo Todo
     | DeleteTodoCmdComplete (Result Http.Error ())
     | EndRenaming Todo
@@ -144,9 +144,6 @@ update msg model =
 
         AddTodoCmdComplete (Ok _) ->
             ( model, fetchTodos )
-
-        ChangeInput title ->
-            ( { model | newTodoTitle = title }, Cmd.none )
 
         DeleteTodo theTodo ->
             ( { model
@@ -175,6 +172,9 @@ update msg model =
 
         HideCompleted checkedUnchecked ->
             ( { model | hideCompleted = checkedUnchecked }, Cmd.none )
+
+        InputNewTodoTitle title ->
+            ( { model | newTodoTitle = title }, Cmd.none )
 
         KeyDown OnAdd 13 ->
             addTodo model
@@ -275,7 +275,7 @@ viewHeader model =
                 [ Css.width (pct 75)
                 ]
             , value model.newTodoTitle
-            , onInput ChangeInput
+            , onInput InputNewTodoTitle
             , onKeyDown (KeyDown OnAdd)
             , placeholder "What needs to be done"
             ]
