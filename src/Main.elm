@@ -120,30 +120,30 @@ addTodo model =
 
 
 type Msg
-    = AddTodo
-    | ChangeInput String
-    | EditTodo Todo String
-    | StartEditing Todo
-    | EndEditing Todo
+    = AddedTodo (Result Http.Error Todo)
+    | AddTodo
     | ChangeCompleted Todo Bool
-    | KeyDown KeyDownWhere Int
-    | DeleteTodo Todo
-    | HideCompleted Bool
-    | LoadedTodos (Result Http.Error (List Todo))
-    | AddedTodo (Result Http.Error Todo)
     | ChangedCompleted (Result Http.Error Todo)
+    | ChangeInput String
     | DeletedTodo (Result Http.Error ())
+    | DeleteTodo Todo
+    | EditTodo Todo String
+    | EndEditing Todo
+    | HideCompleted Bool
+    | KeyDown KeyDownWhere Int
+    | LoadedTodos (Result Http.Error (List Todo))
     | NoOp
+    | StartEditing Todo
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        AddedTodo (Ok _) ->
+            ( model, fetchTodos )
+
         AddTodo ->
             addTodo model
-
-        ChangeInput title ->
-            ( { model | newTodoTitle = title }, Cmd.none )
 
         ChangeCompleted theTodo checked ->
             ( { model
@@ -161,37 +161,14 @@ update msg model =
             , updateTodo theTodo checked theTodo.title
             )
 
-        StartEditing todo ->
-            ( { model | todoBeingEdited = todo.id }, focusTodoEdit )
+        ChangedCompleted (Err _) ->
+            ( model, fetchTodos )
 
-        KeyDown OnAdd keyCode ->
-            if keyCode == 13 then
-                addTodo model
+        ChangeInput title ->
+            ( { model | newTodoTitle = title }, Cmd.none )
 
-            else
-                ( model, Cmd.none )
-
-        KeyDown OnRename keyCode ->
-            if keyCode == 13 then
-                ( { model
-                    | todoBeingEdited = -1
-                  }
-                , let
-                    maybeTheTodo =
-                        model.todos
-                            |> List.filter (\todo -> todo.id == model.todoBeingEdited)
-                            |> List.head
-                  in
-                  case maybeTheTodo of
-                    Just theTodo ->
-                        updateTodo theTodo theTodo.completed theTodo.title
-
-                    Nothing ->
-                        Cmd.none
-                )
-
-            else
-                ( model, Cmd.none )
+        DeletedTodo (Err _) ->
+            ( model, fetchTodos )
 
         DeleteTodo theTodo ->
             ( { model
@@ -204,43 +181,6 @@ update msg model =
               }
             , deleteTodo theTodo
             )
-
-        HideCompleted checkedUnchecked ->
-            ( { model | hideCompleted = checkedUnchecked }, Cmd.none )
-
-        LoadedTodos (Ok todos) ->
-            ( { model | todos = todos }, Cmd.none )
-
-        LoadedTodos (Err _) ->
-            ( model, Cmd.none )
-
-        AddedTodo (Ok _) ->
-            ( model, fetchTodos )
-
-        AddedTodo (Err _) ->
-            ( model, Cmd.none )
-
-        ChangedCompleted (Ok _) ->
-            ( model, Cmd.none )
-
-        ChangedCompleted (Err _) ->
-            ( model, fetchTodos )
-
-        DeletedTodo (Ok _) ->
-            ( model, Cmd.none )
-
-        DeletedTodo (Err _) ->
-            ( model, fetchTodos )
-
-        EndEditing theTodo ->
-            ( { model
-                | todoBeingEdited = -1
-              }
-            , updateTodo theTodo theTodo.completed theTodo.title
-            )
-
-        NoOp ->
-            ( model, Cmd.none )
 
         EditTodo theTodo title ->
             ( { model
@@ -257,6 +197,46 @@ update msg model =
               }
             , Cmd.none
             )
+
+        EndEditing theTodo ->
+            ( { model
+                | todoBeingEdited = -1
+              }
+            , updateTodo theTodo theTodo.completed theTodo.title
+            )
+
+        HideCompleted checkedUnchecked ->
+            ( { model | hideCompleted = checkedUnchecked }, Cmd.none )
+
+        KeyDown OnAdd 13 ->
+            addTodo model
+
+        KeyDown OnRename 13 ->
+            ( { model
+                | todoBeingEdited = -1
+              }
+            , let
+                maybeTheTodo =
+                    model.todos
+                        |> List.filter (\todo -> todo.id == model.todoBeingEdited)
+                        |> List.head
+              in
+              case maybeTheTodo of
+                Just theTodo ->
+                    updateTodo theTodo theTodo.completed theTodo.title
+
+                Nothing ->
+                    Cmd.none
+            )
+
+        LoadedTodos (Ok todos) ->
+            ( { model | todos = todos }, Cmd.none )
+
+        StartEditing todo ->
+            ( { model | todoBeingEdited = todo.id }, focusTodoEdit )
+
+        _ ->
+            ( model, Cmd.none )
 
 
 
