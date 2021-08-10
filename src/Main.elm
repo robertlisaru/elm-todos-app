@@ -43,7 +43,7 @@ type alias Model =
     { newTodoTitle : String
     , todos : List Todo
     , hideCompleted : Bool
-    , todoBeingEdited : Int
+    , todoBeingRenamed : Int
     }
 
 
@@ -57,7 +57,7 @@ init _ =
     ( { newTodoTitle = ""
       , todos = []
       , hideCompleted = False
-      , todoBeingEdited = -1
+      , todoBeingRenamed = -1
       }
     , fetchTodos
     )
@@ -109,9 +109,9 @@ deleteTodo todo =
         |> request
 
 
-focusTodoEdit : Cmd Msg
-focusTodoEdit =
-    Task.attempt (\_ -> NoOp) (Dom.focus "todo-edit-input")
+focusRenameInput : Cmd Msg
+focusRenameInput =
+    Task.attempt (\_ -> NoOp) (Dom.focus "todo-rename-input")
 
 
 addTodo : Model -> ( Model, Cmd Msg )
@@ -127,13 +127,13 @@ type Msg
     | ChangeInput String
     | DeletedTodo (Result Http.Error ())
     | DeleteTodo Todo
-    | EditTodo Todo String
-    | EndEditing Todo
+    | EndRenaming Todo
     | HideCompleted Bool
     | KeyDown KeyDownWhere Int
     | LoadedTodos (Result Http.Error (List Todo))
     | NoOp
-    | StartEditing Todo
+    | RenameTodo Todo String
+    | StartRenaming Todo
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -182,7 +182,41 @@ update msg model =
             , deleteTodo theTodo
             )
 
-        EditTodo theTodo title ->
+        EndRenaming theTodo ->
+            ( { model
+                | todoBeingRenamed = -1
+              }
+            , updateTodo theTodo theTodo.completed theTodo.title
+            )
+
+        HideCompleted checkedUnchecked ->
+            ( { model | hideCompleted = checkedUnchecked }, Cmd.none )
+
+        KeyDown OnAdd 13 ->
+            addTodo model
+
+        KeyDown OnRename 13 ->
+            ( { model
+                | todoBeingRenamed = -1
+              }
+            , let
+                maybeTheTodo =
+                    model.todos
+                        |> List.filter (\todo -> todo.id == model.todoBeingRenamed)
+                        |> List.head
+              in
+              case maybeTheTodo of
+                Just theTodo ->
+                    updateTodo theTodo theTodo.completed theTodo.title
+
+                Nothing ->
+                    Cmd.none
+            )
+
+        LoadedTodos (Ok todos) ->
+            ( { model | todos = todos }, Cmd.none )
+
+        RenameTodo theTodo title ->
             ( { model
                 | todos =
                     List.map
@@ -198,42 +232,8 @@ update msg model =
             , Cmd.none
             )
 
-        EndEditing theTodo ->
-            ( { model
-                | todoBeingEdited = -1
-              }
-            , updateTodo theTodo theTodo.completed theTodo.title
-            )
-
-        HideCompleted checkedUnchecked ->
-            ( { model | hideCompleted = checkedUnchecked }, Cmd.none )
-
-        KeyDown OnAdd 13 ->
-            addTodo model
-
-        KeyDown OnRename 13 ->
-            ( { model
-                | todoBeingEdited = -1
-              }
-            , let
-                maybeTheTodo =
-                    model.todos
-                        |> List.filter (\todo -> todo.id == model.todoBeingEdited)
-                        |> List.head
-              in
-              case maybeTheTodo of
-                Just theTodo ->
-                    updateTodo theTodo theTodo.completed theTodo.title
-
-                Nothing ->
-                    Cmd.none
-            )
-
-        LoadedTodos (Ok todos) ->
-            ( { model | todos = todos }, Cmd.none )
-
-        StartEditing todo ->
-            ( { model | todoBeingEdited = todo.id }, focusTodoEdit )
+        StartRenaming todo ->
+            ( { model | todoBeingRenamed = todo.id }, focusRenameInput )
 
         _ ->
             ( model, Cmd.none )
@@ -318,21 +318,11 @@ viewTodo model todo =
                 , onCheck (ChangeCompleted todo)
                 ]
                 []
-            , if model.todoBeingEdited == todo.id then
-                input
-                    [ id "todo-edit-input"
-                    , value todo.title
-                    , onBlur (EndEditing todo)
-                    , onInput (EditTodo todo)
-                    , onKeyDown (KeyDown OnRename)
-                    ]
-                    []
+            , if model.todoBeingRenamed == todo.id then
+                viewTodoRenameInput todo
 
               else
-                label
-                    [ onClick (StartEditing todo)
-                    ]
-                    [ text todo.title ]
+                viewTodoTitle todo
             , button
                 [ css
                     [ Css.float right
@@ -342,6 +332,25 @@ viewTodo model todo =
                 [ text "x" ]
             ]
         ]
+
+
+viewTodoRenameInput : Todo -> Html Msg
+viewTodoRenameInput todo =
+    input
+        [ id "todo-rename-input"
+        , value todo.title
+        , onBlur (EndRenaming todo)
+        , onInput (RenameTodo todo)
+        , onKeyDown (KeyDown OnRename)
+        ]
+        []
+
+
+viewTodoTitle : Todo -> Html Msg
+viewTodoTitle todo =
+    label
+        [ onClick (StartRenaming todo) ]
+        [ text todo.title ]
 
 
 viewTodos : Model -> List (Html Msg)
