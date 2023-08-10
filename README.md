@@ -1,7 +1,7 @@
 ![image](https://github.com/robertlisaru/elm-exercises/assets/40792547/9a2e1778-1e23-4ac0-8689-c0470aad64b8)
 
 ## My Elm experience <3
-- After React, this was the 2nd web framework I had ever interacted with at the time.
+- After React, this was the 2nd web framework I had ever interacted with at the time, in 2021.
 - At university I had mostly used imperative languages like Java, C, C++, PHP.
 - Thinking in a functional style was not easy at first, but shortly became natural and intuitive to me.
 - It took me 7 days to learn the Elm basics and build this small test app.
